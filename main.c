@@ -237,7 +237,7 @@ int main(int argc, char **argv)
                 }
                 printf("%lu octets recus\n", nBytes);
 
-                if()
+
                 // fwrite(buffer,1,nBytes,stdout);
                 if(!memcmp(QUIT, buffer, strlen(QUIT)-1))
                 {
