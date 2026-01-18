@@ -142,7 +142,7 @@ int main(int argc, char **argv)
 
 
     const unsigned int BUFFER_SIZE = 256;
-    char buffer[BUFFER_SIZE]; 
+    char ac_buffer[BUFFER_SIZE]; 
     ssize_t cnt_bytes_transfered;
 
     char ac_tosend[SRVMSG_MAXLEN];
@@ -236,7 +236,7 @@ int main(int argc, char **argv)
         {
             if(at_user_events[i].data.fd==fd_sock)
             {
-                printf("Un nouvel utiisateur veut se connecter !\n");
+                printf("Un nouvel utilisateur veut se connecter !\n");
                 int newsock;
                 newsock = accept(fd_sock,&t_client_sockaddr,&cnt_client_sockaddr);
                 int idx = find_empty_slot(afd_user_sock, USER_COUNT);
@@ -260,19 +260,25 @@ int main(int argc, char **argv)
             }
             else // On parle avec un user connecté
             {
-                memset(buffer, 0, BUFFER_SIZE);
-                cnt_bytes_transfered = recv(at_user_events[i].data.fd,buffer,BUFFER_SIZE,0);
+                memset(ac_buffer, 0, BUFFER_SIZE);
+                cnt_bytes_transfered = recv(at_user_events[i].data.fd,ac_buffer,BUFFER_SIZE,0);
                 if(cnt_bytes_transfered==0)
                 {
                     continue;
                 }
+                char *pc_found = strpbrk(ac_buffer,"\r\n");
+                if(pc_found)
+                {
+                    *pc_found = '\0';
+                }
+
                 printf("%lu octets recus\n", cnt_bytes_transfered);
 
                 int idx = get_idx_from_sockfd(at_user_events[i].data.fd, afd_user_sock, USER_COUNT);
 
                 if(!at_userinfo[idx].b_authentified) // authentification
                 {
-                    strncpy(at_userinfo[idx].ac_username, buffer, USERNAME_LEN);
+                    strncpy(at_userinfo[idx].ac_username, ac_buffer, USERNAME_LEN);
                     at_userinfo[idx].b_authentified = 1;
                     at_userinfo[idx].idx_speakto = -1;
                     char *pzUserList;
@@ -286,29 +292,33 @@ int main(int argc, char **argv)
                 {
                     unsigned int speakToIdx;
                     int ret;
-                    ret = sscanf(buffer,"%u",&speakToIdx);
+                    ret = sscanf(ac_buffer,"%u",&speakToIdx);
                     if(ret!=EOF)
                     {
                         if(speakToIdx < USER_COUNT)
                         {
-                            memset(buffer, 0, BUFFER_SIZE);
-                            cnt_bytes_transfered = snprintf(buffer, BUFFER_SIZE,
+                            memset(ac_buffer, 0, BUFFER_SIZE);
+                            cnt_bytes_transfered = snprintf(ac_buffer, BUFFER_SIZE,
                                                 "Vous parlez maintenant à %s\n",
                                                 at_userinfo[speakToIdx].ac_username);
                             at_userinfo[idx].idx_speakto = speakToIdx;
-                            send(afd_user_sock[idx],buffer,cnt_bytes_transfered,0);
+                            send(afd_user_sock[idx],ac_buffer,cnt_bytes_transfered,0);
                         }
                     }
                 }
                 else // user authentifié et connecté à un autre user
                 {
                     const unsigned int idx_speakto = at_userinfo[idx].idx_speakto;
-                    send(afd_user_sock[idx_speakto], buffer, cnt_bytes_transfered,0);
+                    send(afd_user_sock[idx_speakto], ac_buffer, cnt_bytes_transfered,0);
 
-                    if(!memcmp(QUIT, buffer, strlen(QUIT)-1))
+                    if(!memcmp(QUIT, ac_buffer, strlen(QUIT)-1))
                     {
                         printf("ON QUITTE\n");
                     }
+                    /**
+                     * TODO : déconnexion d'un user
+                     * 
+                     */
                 }
 
             }
