@@ -11,6 +11,19 @@
 
 #include <fcntl.h>
 
+#define USERID_LEN 4
+#define USERNAME_LEN 64
+
+#define USER_WELCOME_MSG "Bienvenue sur le serveur de discussion, quel est votre nom ?\n"
+#define USER_WELCOME_MSG_LEN sizeof(USER_WELCOME_MSG)
+
+typedef struct UserInfo
+{
+    int used; // 0 si inutilisé, 1 si user actif
+    int authentified; // 0 si non authentifié, 1 si authentifié
+    char username[USERNAME_LEN];
+} UserInfo;
+
 /**
  * @brief Renvoie l'indice de la première valeur -1 du tableau.
  * Renvoie -1 si la valeur -1 n'est pas dans le tableau
@@ -31,6 +44,46 @@ int findEmptySlot(int tab[], unsigned int tabSize)
     return -1;
 }
 
+/**
+ * @brief Génère un string contenant la liste des utilisateurs actifs. 
+ * La fonction alloue dynamiquement et mets à jour le pointeur ppzUserList.
+ * La mémoire allouée devra être libérée avec freeUserListString()
+ * 
+ * @param atUserInfo 
+ * @param nUserInfoLen 
+ * @param ppzUserList 
+ */
+void getUserListString(struct UserInfo atUserInfo[], unsigned int nUserInfoLen, char **ppzUserList)
+{
+    const unsigned int USER_LABEL_SIZE = USERID_LEN + USERNAME_LEN + 3; // userid - USERNAME
+    *ppzUserList = malloc(USER_LABEL_SIZE * nUserInfoLen);
+    int offset = 0;
+    for(unsigned int i=0;i<nUserInfoLen;++i)
+    {
+        if(atUserInfo[i].used)
+        {
+            offset += sprintf((*ppzUserList)+offset, "%s\n", atUserInfo[i].username);
+        }
+    }
+}
+
+/**
+ * @brief Libère la mémoire allouée pour la liste des utilisateurs.
+ * Cette fonction doit impérativement être appelée avec getUserListString
+ * pour libérer la mémoire allouée dynamiquement !
+ * 
+ * @param ppzUserList 
+ */
+void freeUserListString(char **ppzUserList)
+{
+    if(*ppzUserList)
+    {
+        free(*ppzUserList);
+        *ppzUserList = NULL;
+    }
+    
+}
+
 int main(int argc, char **argv)
 {
     int opt;
@@ -44,16 +97,20 @@ int main(int argc, char **argv)
     struct sockaddr cltSockAddr;
     socklen_t cltSockAddrLen;
 
-    const unsigned int SOCKET_COUNT = 10;
-    int csockfd[SOCKET_COUNT];
-    for(unsigned int i=0;i<SOCKET_COUNT;++i)
+    const unsigned int USER_COUNT = 10;
+    int csockfd[USER_COUNT];
+    for(unsigned int i=0;i<USER_COUNT;++i)
     {
         csockfd[i] = -1;
     }
 
+    struct UserInfo atUserInfo[USER_COUNT];
+    memset(atUserInfo, 0, sizeof(atUserInfo));
+    
+
     struct epoll_event ev;
 
-    struct epoll_event events[SOCKET_COUNT+1];
+    struct epoll_event events[USER_COUNT+1];
 
 
     const unsigned int BUFFER_SIZE = 256;
@@ -136,7 +193,7 @@ int main(int argc, char **argv)
 
     while(1)
     {   
-        n = epoll_wait(epfd,events,SOCKET_COUNT+1,-1);
+        n = epoll_wait(epfd,events,USER_COUNT+1,-1);
 
         if(n==-1)
         {
@@ -149,24 +206,28 @@ int main(int argc, char **argv)
             // printf("%d",i);
             if(events[i].data.fd==sockfd)
             {
-                printf("Un nouveau client veut se connecter !\n");
+                printf("Un nouvel utiisateur veut se connecter !\n");
                 int newsock;
                 newsock = accept(sockfd,&cltSockAddr,&cltSockAddrLen);
-                int idx = findEmptySlot(csockfd, SOCKET_COUNT);
-                if(idx==-1)
+                int idx = findEmptySlot(csockfd, USER_COUNT);
+                if(idx==-1) // Il n'y a plus de slot dispo, on ferme la connexion
                 {
                     close(newsock);
                 }
-                else
+                else // Un nouvel utilisateur se connecte
                 {
-                    printf("Ajout d'un nouveau client à l'emplacement %d\n", idx);
+                    printf("Ajout d'un nouvel utiisateur à l'emplacement %d\n", idx);
                     csockfd[idx] = newsock;
                     ev.data.fd = newsock;
                     ev.events = EPOLLIN;
+                    memset(atUserInfo + idx,0,sizeof(struct UserInfo));
+                    atUserInfo[idx].used = 1;
                     epoll_ctl(epfd, EPOLL_CTL_ADD, csockfd[idx], &ev);
+
+                    send(newsock, USER_WELCOME_MSG, USER_WELCOME_MSG_LEN,0);
                 }
             }
-            else
+            else // On parle avec un user connecté
             {
                 memset(buffer, 0, BUFFER_SIZE);
                 nBytes = recv(events[i].data.fd,buffer,BUFFER_SIZE,0);
@@ -175,6 +236,8 @@ int main(int argc, char **argv)
                     continue;
                 }
                 printf("%lu octets recus\n", nBytes);
+
+                if()
                 // fwrite(buffer,1,nBytes,stdout);
                 if(!memcmp(QUIT, buffer, strlen(QUIT)-1))
                 {
@@ -183,13 +246,8 @@ int main(int argc, char **argv)
             }
         }
     }
-    
-    
 
-
-    // shutdown(csockfd, SHUT_RDWR);
     shutdown(sockfd, SHUT_RDWR);
-    // close(csockfd);
     close(sockfd);
     
     exit(EXIT_SUCCESS);
