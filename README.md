@@ -1,11 +1,11 @@
-###Nommage selon la portée
+### Nommage selon la portée
 |préfixe|description|
 |-----|-----|
 |g_|globale|
 |s_|statique|
 |m_|membre (C++)|
 
-###Nommage selon le type
+### Nommage selon le type
 |préfixe|description|
 |-----|-----|
 |b_|booléen (int en C)|
@@ -31,7 +31,7 @@
 |ai_|int aiList[10]|
 |ast_|struct ast_mastruct_t[10]|
 
-###Nommage selon le contexte
+### Nommage selon le contexte
 |préfixe|description|
 |-----|-----|
 |idx_|indice dans un tableau|
