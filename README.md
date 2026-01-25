@@ -1,3 +1,7 @@
+### Un serveur de messagerie simple
+Implémentation d'un serveur de messagerie simple, traitant des données textuelles, on peut s'y connecter avec des clients telnet.
+Le serveur est basé sur un multiplexage avec epoll. 
+
 ### Nommage selon la portée
 |préfixe|description|
 |-----|-----|
